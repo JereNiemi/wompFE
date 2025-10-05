@@ -1,0 +1,62 @@
+/* style.css */
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background: #f0f0f0;
+}
+
+.hidden {
+    display: none;
+}
+
+
+#notes-container {
+    min-height: 500px; 
+    width: 100%;
+    position: relative; 
+    margin-top: 20px;
+   
+}
+
+.note {
+    width: 150px;
+    min-height: 100px;
+    background: #fffa87;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: grab;
+    position: absolute; 
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+}
+
+.note.dragging {
+    opacity: 0.8;
+    cursor: grabbing;
+    z-index: 100; 
+}
+
+input, button {
+    padding: 8px 12px;
+    margin: 5px 5px 5px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#new-note-input {
+    width: 300px;
+}
+
+#login-screen, #notes-screen {
+    padding: 20px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 8px;
+    max-width: 500px;
+    margin-bottom: 20px;
+}
+
+#login-msg {
+    color: red;
+    margin-top: 10px;
+}
