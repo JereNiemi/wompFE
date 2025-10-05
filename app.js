@@ -68,7 +68,7 @@ loginBtn.addEventListener('click', async () => {
 logoutBtn.addEventListener('click', logoutUser);
 
 
-// --- FETCH NOTES (Used by setInterval) ---
+// --- FETCH NOTES  ---
 async function fetchNotes() {
     if (!jwtToken) return;
 
@@ -94,30 +94,50 @@ addNoteBtn.addEventListener('click', async () => {
     if (!noteText) return;
 
     // Set initial coordinates for new notes
+    // These values are sent to the API and used for immediate rendering
     const initialX = 50 + Math.floor(Math.random() * 20);
     const initialY = 50 + Math.floor(Math.random() * 20);
 
-    const res = await fetch(API_NOTES, {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${jwtToken}`
-        },
-        body: JSON.stringify({ note: noteText, x: initialX, y: initialY })
-    });
-    if (!res.ok) return;
-    newNoteInput.value = '';
-    fetchNotes(); 
+    try {
+        const res = await fetch(API_NOTES, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${jwtToken}`
+            },
+            // Send x and y position for immediate placement
+            body: JSON.stringify({ note: noteText, x: initialX, y: initialY })
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to create note');
+        }
+        
+
+        const data = await res.json(); 
+        
+        // Add the new note to the local array to display it immediately
+        notes.unshift(data.note); 
+        
+        newNoteInput.value = '';
+        
+        // Render notes to display the new note without waiting for the interval
+        renderNotes(); 
+        
+    } catch (error) {
+        console.error('Error creating note:', error.message);
+    }
 });
 
-// --- RENDER NOTES  ---
+// --- RENDER NOTES ---
 function renderNotes() {
     const noteIdsFromAPI = new Set(notes.map(note => note.id));
     const currentNotesInDom = Array.from(notesContainer.querySelectorAll('.note'));
 
-    //  Remove notes that no longer exist in the API
+    // Remove notes that no longer exist in the API
     currentNotesInDom.forEach(el => {
-        if (!noteIdsFromAPI.has(el.dataset.id)) {
+        // Use Number() for comparison since note.id is a number from the API
+        if (!noteIdsFromAPI.has(Number(el.dataset.id))) { 
             el.remove();
         }
     });
@@ -139,8 +159,8 @@ function renderNotes() {
         // Always update content (text)
         div.textContent = note.note;
         
-      
-        if (note.id !== currentlyDraggingId) {
+        // Only update position if the note is NOT currently being dragged
+        if (Number(note.id) !== Number(currentlyDraggingId)) {
             // Apply position from API data (or default to 50px)
             const xPos = (note.x !== undefined && note.x !== null) ? `${note.x}px` : '50px';
             const yPos = (note.y !== undefined && note.y !== null) ? `${note.y}px` : '50px';
@@ -151,20 +171,21 @@ function renderNotes() {
     });
 }
 
-// --- DRAG AND DROP  ---
+// --- DRAG AND DROP ---
 function enableDrag(el) {
     let offsetX, offsetY;
-    // Ensure ID is a string for comparison with currentlyDraggingId
     const noteId = el.dataset.id.toString(); 
 
     el.addEventListener('mousedown', e => {
-        currentlyDraggingId = noteId; // Set the ID of the note being dragged
+        // Set the ID of the note being dragged
+        currentlyDraggingId = noteId; 
         
         el.classList.add('dragging');
         offsetX = e.offsetX;
         offsetY = e.offsetY;
 
         function onMouseMove(e) {
+            // Keep the note within the viewport if desired (optional boundary checks omitted for brevity)
             el.style.left = e.pageX - offsetX + 'px';
             el.style.top = e.pageY - offsetY + 'px';
         }
@@ -178,28 +199,28 @@ function enableDrag(el) {
             const newX = parseInt(window.getComputedStyle(el).left);
             const newY = parseInt(window.getComputedStyle(el).top);
 
-          
-            
+            // Update local notes array immediately
             const localNote = notes.find(n => n.id.toString() === noteId);
             if (localNote) {
                 localNote.x = newX;
                 localNote.y = newY;
             }
             
-            // Clear the ID *after* the local array update
+            // Clear the ID *after* the local array update and before the fetch completes
             currentlyDraggingId = null;
 
-           
+            // Send the new position to the server 
             await fetch(`${API_NOTES}/${noteId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${jwtToken}`
                 },
+                // Send only the position data 
                 body: JSON.stringify({ x: newX, y: newY }) 
             });
             
-           
+            
         }
 
         document.addEventListener('mousemove', onMouseMove);
@@ -208,22 +229,21 @@ function enableDrag(el) {
 }
 
 
-// --- INITIALIZATION ON PAGE LOAD ---
+
 async function initializeApp() {
-    //  Check if a token exists in local storage
+    // Check if a token exists in local storage
     const storedToken = localStorage.getItem('userToken');
 
     if (storedToken) {
         jwtToken = storedToken;
         
-      
         loginScreen.classList.add('hidden');
         notesScreen.classList.remove('hidden');
 
-        //  Attempt to fetch notes to validate the token
+        // Attempt to fetch notes to validate the token
         await fetchNotes(); 
 
-        //  If the token is still valid, start the interval
+        // If the token is still valid (i.e., jwtToken wasn't cleared by fetchNotes), start the interval
         if (jwtToken) { 
             fetchIntervalId = setInterval(fetchNotes, 5000); 
         } 
